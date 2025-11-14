@@ -40,14 +40,14 @@ jobs:
           pip install -r requirements.txt
           pip install flet
 
-      - name: Build Linux app
-        run: flet build linux --project Main.py
+      - name: Build Linux app (single binary)
+        run: flet pack Main.py --name MireaReportGenerator
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: build/linux/
+          path: dist/MireaReportGenerator
 
   build-windows:
     runs-on: windows-latest
@@ -66,14 +66,14 @@ jobs:
           pip install -r requirements.txt
           pip install flet
 
-      - name: Build Windows app
-        run: flet build windows --project Main.py
+      - name: Build Windows app (single exe)
+        run: flet pack Main.py --name MireaReportGenerator
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: build/windows/
+          path: dist/MireaReportGenerator.exe
 
   build-macos:
     runs-on: macos-latest
@@ -90,40 +90,47 @@ jobs:
           pip install -r requirements.txt
           pip install flet
 
-      - name: Build macOS app
+      - name: Build macOS app bundle
         run: flet build macos --project Main.py
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "MIREA Report Generator" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --app-drop-link 600 185 \
+            MireaReportGenerator.dmg \
+            build/macos/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: build/macos/
+          path: MireaReportGenerator.dmg
 
   create-release:
-    needs: [ build-linux, build-windows, build-macos ]
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Package builds
+      - name: Rename files
         run: |
-          cd linux-build
-          tar -czf ../MireaReportGenerator-linux.tar.gz *
-          cd ../windows-build
-          zip -r ../MireaReportGenerator-windows.zip *
-          cd ../macos-build
-          zip -r ../MireaReportGenerator-macos.zip *
-          cd ..
+          mv windows-build/MireaReportGenerator.exe MireaReportGenerator-windows.exe
+          mv linux-build/MireaReportGenerator MireaReportGenerator-linux
+          mv macos-build/MireaReportGenerator.dmg MireaReportGenerator-macos.dmg
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            MireaReportGenerator-linux.tar.gz
-            MireaReportGenerator-windows.zip
-            MireaReportGenerator-macos.zip
+            MireaReportGenerator-windows.exe
+            MireaReportGenerator-linux
+            MireaReportGenerator-macos.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
