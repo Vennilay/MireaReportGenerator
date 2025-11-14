@@ -6,9 +6,6 @@
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Flet](https://img.shields.io/badge/Flet-Latest-purple.svg)
-<img width="863" height="1045" alt="изображение" src="https://github.com/user-attachments/assets/95f4a915-ca38-4d3c-b75c-5399b7b524f5" />
-
-
 
 ---
 

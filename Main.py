@@ -9,8 +9,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 
 class MireaReportGenerator:
-    """Главный класс приложения - Генератор отчётов РТУ МИРЭА"""
-
     def __init__(self, page: ft.Page):
         self.page = page
         self.page.title = "MIREA Report Generator - Генератор отчётов РТУ МИРЭА"
@@ -41,12 +39,10 @@ class MireaReportGenerator:
         self.template_file_picker = None
         self.files_list = None
 
-        # Инициализация
         self.config = self.load_config()
         self.create_ui()
 
     def load_config(self):
-        """Загружает сохранённые настройки из config.json"""
         try:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
@@ -64,7 +60,6 @@ class MireaReportGenerator:
         }
 
     def save_config(self):
-        """Сохраняет текущие настройки в config.json"""
         try:
             config = {
                 "group": self.group_field.value,
@@ -80,7 +75,6 @@ class MireaReportGenerator:
             self.show_snackbar(f"Ошибка сохранения конфига: {str(e)}", ft.Colors.ORANGE)
 
     def show_snackbar(self, message: str, color: str = ft.Colors.BLUE_700):
-        """Показывает уведомление внизу экрана"""
         snackbar = ft.SnackBar(
             content=ft.Text(message, color=ft.Colors.WHITE),
             bgcolor=color,
@@ -91,8 +85,6 @@ class MireaReportGenerator:
         self.page.update()
 
     def show_dialog(self, title: str, message: str):
-        """Показывает диалоговое окно с информацией или ошибкой"""
-
         def close_dialog(_e):
             dialog.open = False
             self.page.update()
@@ -101,9 +93,7 @@ class MireaReportGenerator:
             modal=True,
             title=ft.Text(title, weight=ft.FontWeight.BOLD),
             content=ft.Text(message),
-            actions=[
-                ft.TextButton("ОК", on_click=close_dialog)
-            ],
+            actions=[ft.TextButton("ОК", on_click=close_dialog)],
             actions_alignment=ft.MainAxisAlignment.END
         )
 
@@ -112,8 +102,6 @@ class MireaReportGenerator:
         self.page.update()
 
     def show_about_dialog(self, _e):
-        """Показывает информацию о создателе"""
-
         def close_dialog(_e):
             dialog.open = False
             self.page.update()
@@ -125,45 +113,20 @@ class MireaReportGenerator:
             modal=True,
             title=ft.Text("О создателе 👨‍💻", weight=ft.FontWeight.BOLD, size=20),
             content=ft.Column([
-                ft.Text(
-                    "MIREA Report Generator",
-                    size=16,
-                    weight=ft.FontWeight.BOLD,
-                    color=ft.Colors.BLUE_700
-                ),
+                ft.Text("MIREA Report Generator", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
                 ft.Divider(height=10),
-                ft.Text(
-                    "Генератор отчётов для студентов РТУ МИРЭА",
-                    size=14,
-                    color=ft.Colors.GREY_700
-                ),
+                ft.Text("Генератор отчётов для студентов РТУ МИРЭА", size=14, color=ft.Colors.GREY_700),
                 ft.Container(height=10),
-                ft.Text(
-                    "Разработчик: Vennilay",
-                    size=14,
-                    weight=ft.FontWeight.W_500
-                ),
+                ft.Text("Разработчик: Vennilay", size=14, weight=ft.FontWeight.W_500),
                 ft.Container(height=5),
                 ft.ElevatedButton(
-                    "GitHub Profile",
-                    icon=ft.Icons.OPEN_IN_NEW,
-                    on_click=open_github,
-                    style=ft.ButtonStyle(
-                        bgcolor=ft.Colors.GREY_800,
-                        color=ft.Colors.WHITE
-                    )
+                    "GitHub Profile", icon=ft.Icons.OPEN_IN_NEW, on_click=open_github,
+                    style=ft.ButtonStyle(bgcolor=ft.Colors.GREY_800, color=ft.Colors.WHITE)
                 ),
                 ft.Container(height=10),
-                ft.Text(
-                    "© 2025 Vennilay",
-                    size=12,
-                    color=ft.Colors.GREY_500,
-                    italic=True
-                )
+                ft.Text("© 2025 Vennilay", size=12, color=ft.Colors.GREY_500, italic=True)
             ], tight=True, spacing=5),
-            actions=[
-                ft.TextButton("Закрыть", on_click=close_dialog)
-            ],
+            actions=[ft.TextButton("Закрыть", on_click=close_dialog)],
             actions_alignment=ft.MainAxisAlignment.END
         )
 
@@ -172,70 +135,42 @@ class MireaReportGenerator:
         self.page.update()
 
     def create_ui(self):
-        """Создаёт пользовательский интерфейс"""
-
         header_row = ft.Row([
-            ft.Text(
-                "MIREA Report Generator",
-                size=26,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.BLUE_700
-            ),
-            ft.IconButton(
-                icon=ft.Icons.INFO_OUTLINED,
-                tooltip="О создателе",
-                on_click=self.show_about_dialog,
-                icon_color=ft.Colors.BLUE_600,
-                icon_size=28
-            )
+            ft.Text("MIREA Report Generator", size=26, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700),
+            ft.IconButton(icon=ft.Icons.INFO_OUTLINED, tooltip="О создателе",
+                          on_click=self.show_about_dialog, icon_color=ft.Colors.BLUE_600, icon_size=28)
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
-        subtitle = ft.Text(
-            "Генератор отчётов для РТУ МИРЭА",
-            size=14,
-            color=ft.Colors.GREY_600,
-            italic=True
-        )
+        subtitle = ft.Text("Генератор отчётов для РТУ МИРЭА", size=14, color=ft.Colors.GREY_600, italic=True)
 
         self.group_field = ft.TextField(
             label="Группа (например: ИКБО-47-52)",
-            value=self.config.get("group", ""),
-            width=400,
-            autofocus=True,
-            border_color=ft.Colors.BLUE_400,
+            value=self.config.get("group", ""), width=400,
+            autofocus=True, border_color=ft.Colors.BLUE_400,
             prefix_icon=ft.Icons.GROUP
         )
 
         self.student_field = ft.TextField(
             label="ФИО студента (например: Иванов И.И.)",
-            value=self.config.get("student_name", ""),
-            width=400,
-            border_color=ft.Colors.BLUE_400,
-            prefix_icon=ft.Icons.PERSON
+            value=self.config.get("student_name", ""), width=400,
+            border_color=ft.Colors.BLUE_400, prefix_icon=ft.Icons.PERSON
         )
 
         self.teacher_field = ft.TextField(
-            label="ФИО преподавателя (например: Кодабашян Л.С.)",
-            value=self.config.get("teacher_name", ""),
-            width=400,
-            border_color=ft.Colors.BLUE_400,
-            prefix_icon=ft.Icons.SCHOOL
+            label="ФИО преподавателя", value=self.config.get("teacher_name", ""),
+            width=400, border_color=ft.Colors.BLUE_400, prefix_icon=ft.Icons.SCHOOL
         )
 
         self.work_number_field = ft.TextField(
-            label="Номер работы",
-            value=self.config.get("work_number", ""),
-            width=200,
-            keyboard_type=ft.KeyboardType.NUMBER,
-            border_color=ft.Colors.BLUE_400,
-            prefix_icon=ft.Icons.NUMBERS
+            label="Номер работы", value=self.config.get("work_number", ""),
+            width=200, keyboard_type=ft.KeyboardType.NUMBER,
+            border_color=ft.Colors.BLUE_400, prefix_icon=ft.Icons.NUMBERS
         )
 
         self.template_path_field = ft.TextField(
-            label="Путь к файлу шаблона (например: template.docx)",
+            label="Путь к файлу шаблона",
             value=self.config.get("template_path", "template.docx"),
-            width=400,
-            border_color=ft.Colors.BLUE_400,
+            width=400, border_color=ft.Colors.BLUE_400,
             prefix_icon=ft.Icons.DESCRIPTION,
             hint_text="Укажите путь или имя файла шаблона"
         )
@@ -244,32 +179,24 @@ class MireaReportGenerator:
         self.page.overlay.append(self.template_file_picker)
 
         select_template_btn = ft.ElevatedButton(
-            "Выбрать файл шаблона",
-            icon=ft.Icons.FILE_OPEN,
+            "Выбрать файл шаблона", icon=ft.Icons.FILE_OPEN,
             on_click=lambda _: self.template_file_picker.pick_files(
                 dialog_title="Выберите файл шаблона DOCX",
-                allowed_extensions=["docx"],
-                file_type=ft.FilePickerFileType.CUSTOM
+                allowed_extensions=["docx"], file_type=ft.FilePickerFileType.CUSTOM
             ),
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.PURPLE_600,
-                color=ft.Colors.WHITE
-            )
+            style=ft.ButtonStyle(bgcolor=ft.Colors.PURPLE_600, color=ft.Colors.WHITE)
         )
 
         self.template_path_display = ft.Text(
             value=f"Текущий шаблон: {self.config.get('template_path', 'template.docx')}",
-            color=ft.Colors.GREY_700,
-            size=12
+            color=ft.Colors.GREY_700, size=12
         )
 
-        # DatePicker с русскими текстами
         self.date_picker = ft.DatePicker(
             first_date=datetime(2020, 1, 1),
             last_date=datetime(2030, 12, 31),
             on_change=self.on_date_changed,
             on_dismiss=self.on_date_dismissed,
-            # Русифицированные тексты для календаря
             help_text="Выберите дату",
             cancel_text="Отмена",
             confirm_text="ОК",
@@ -282,39 +209,26 @@ class MireaReportGenerator:
 
         self.date_display = ft.Text(
             value=self.format_date(self.selected_date),
-            size=16,
-            color=ft.Colors.GREEN_700,
-            weight=ft.FontWeight.BOLD
+            size=16, color=ft.Colors.GREEN_700, weight=ft.FontWeight.BOLD
         )
 
         date_picker_btn = ft.ElevatedButton(
-            "Выбрать дату",
-            icon=ft.Icons.CALENDAR_MONTH,
+            "Выбрать дату", icon=ft.Icons.CALENDAR_MONTH,
             on_click=self.open_date_picker,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.BLUE_600,
-                color=ft.Colors.WHITE
-            )
+            style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
         )
 
-        self.directory_text = ft.Text(
-            value="Директория не выбрана",
-            color=ft.Colors.GREY_700
-        )
+        self.directory_text = ft.Text(value="Директория не выбрана", color=ft.Colors.GREY_700)
 
         self.file_picker = ft.FilePicker(on_result=self.on_directory_selected)
         self.page.overlay.append(self.file_picker)
 
         select_dir_btn = ft.ElevatedButton(
-            "Выбрать директорию с кодом",
-            icon=ft.Icons.FOLDER_OPEN,
+            "Выбрать директорию с кодом", icon=ft.Icons.FOLDER_OPEN,
             on_click=lambda _: self.file_picker.get_directory_path(
                 dialog_title="Выберите папку с файлами кода"
             ),
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.BLUE_600,
-                color=ft.Colors.WHITE
-            )
+            style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE)
         )
 
         self.files_list = ft.Column(spacing=5)
@@ -323,22 +237,14 @@ class MireaReportGenerator:
             "Создать DOCX документ",
             icon=ft.Icons.DESCRIPTION,
             on_click=self.generate_document,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.GREEN_700,
-                color=ft.Colors.WHITE
-            ),
-            width=300,
-            height=50
+            style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_700, color=ft.Colors.WHITE),
+            width=300, height=50
         )
 
         footer = ft.Container(
             content=ft.Row([
-                ft.Text(
-                    "Made with ❤️ by Vennilay",
-                    size=12,
-                    color=ft.Colors.GREY_600,
-                    italic=True
-                )
+                ft.Text("Made with ❤️ by Vennilay", size=12,
+                        color=ft.Colors.GREY_600, italic=True)
             ], alignment=ft.MainAxisAlignment.CENTER),
             padding=ft.padding.only(top=20, bottom=10)
         )
@@ -385,7 +291,6 @@ class MireaReportGenerator:
         )
 
     def on_template_selected(self, e: ft.FilePickerResultEvent):
-        """Обработчик выбора файла шаблона"""
         if e.files and len(e.files) > 0:
             selected_file = e.files[0]
             template_path = selected_file.path
@@ -395,18 +300,13 @@ class MireaReportGenerator:
             self.template_path_display.color = ft.Colors.GREEN_700
 
             self.page.update()
-            self.show_snackbar(
-                f"✅ Выбран шаблон: {os.path.basename(template_path)}",
-                ft.Colors.GREEN_700
-            )
+            self.show_snackbar(f"✅ Выбран шаблон: {os.path.basename(template_path)}", ft.Colors.GREEN_700)
 
     def open_date_picker(self, _e):
-        """Открывает календарь для выбора даты"""
         self.page.open(self.date_picker)
 
     @staticmethod
     def format_date(date: datetime) -> str:
-        """Форматирует дату в нужный формат: «13» ноября 2025"""
         months = {
             1: "января", 2: "февраля", 3: "марта", 4: "апреля",
             5: "мая", 6: "июня", 7: "июля", 8: "августа",
@@ -415,22 +315,17 @@ class MireaReportGenerator:
         return f"«{date.day}» {months[date.month]} {date.year}"
 
     def on_date_changed(self, event):
-        """Обработчик изменения даты в календаре"""
         if event.control.value:
             self.selected_date = event.control.value
             self.date_display.value = self.format_date(self.selected_date)
             self.page.update()
-            self.show_snackbar(
-                f"✅ Дата выбрана: {self.format_date(self.selected_date)}",
-                ft.Colors.GREEN_700
-            )
+            self.show_snackbar(f"✅ Дата выбрана: {self.format_date(self.selected_date)}",
+                               ft.Colors.GREEN_700)
 
     def on_date_dismissed(self, _e):
-        """Обработчик закрытия календаря"""
         pass
 
     def on_directory_selected(self, e: ft.FilePickerResultEvent):
-        """Обработчик выбора директории"""
         if e.path:
             self.selected_directory = e.path
             self.directory_text.value = f"Выбрана: {self.selected_directory}"
@@ -438,13 +333,10 @@ class MireaReportGenerator:
 
             self.find_code_files()
             self.page.update()
-            self.show_snackbar(
-                f"✅ Найдено файлов: {len(self.found_files)}",
-                ft.Colors.GREEN_700
-            )
+            self.show_snackbar(f"✅ Найдено файлов: {len(self.found_files)}",
+                               ft.Colors.GREEN_700)
 
     def find_code_files(self):
-        """Ищет файлы с кодом в выбранной директории"""
         if not self.selected_directory:
             return
 
@@ -458,28 +350,20 @@ class MireaReportGenerator:
                         full_path = os.path.join(root, file)
                         self.found_files.append(full_path)
         except Exception as e:
-            self.show_snackbar(
-                f"❌ Ошибка при поиске файлов: {str(e)}",
-                ft.Colors.RED_700
-            )
+            self.show_snackbar(f"❌ Ошибка при поиске файлов: {str(e)}", ft.Colors.RED_700)
             return
 
         self.files_list.controls.clear()
 
         if self.found_files:
             self.files_list.controls.append(
-                ft.Text(
-                    f"Найдено файлов: {len(self.found_files)}",
-                    weight=ft.FontWeight.BOLD,
-                    color=ft.Colors.GREEN_700
-                )
+                ft.Text(f"Найдено файлов: {len(self.found_files)}",
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.GREEN_700)
             )
             for file_path in self.found_files:
                 self.files_list.controls.append(
-                    ft.Text(
-                        f"  • {os.path.basename(file_path)}",
-                        color=ft.Colors.GREY_700
-                    )
+                    ft.Text(f"  • {os.path.basename(file_path)}", color=ft.Colors.GREY_700)
                 )
         else:
             self.files_list.controls.append(
@@ -487,7 +371,6 @@ class MireaReportGenerator:
             )
 
     def generate_document(self, _e):
-        """Генерирует DOCX документ с титульным листом и кодом"""
         try:
             if not self.group_field.value:
                 self.show_dialog("Ошибка", "Заполните поле 'Группа'!")
@@ -506,18 +389,13 @@ class MireaReportGenerator:
                 return
 
             if not self.found_files:
-                self.show_dialog(
-                    "Ошибка",
-                    "Не выбраны файлы с кодом! Выберите директорию с файлами."
-                )
+                self.show_dialog("Ошибка", "Не выбраны файлы с кодом! Выберите директорию с файлами.")
                 return
 
-            # Определение пути к шаблону
             template_path = self.template_path_field.value.strip()
             if not template_path:
                 template_path = "template.docx"
 
-            # Проверка существования шаблона
             if not os.path.exists(template_path):
                 self.show_dialog(
                     "Ошибка",
@@ -597,10 +475,7 @@ class MireaReportGenerator:
                 f"Имя файла: {output_filename}\n\n"
                 f"Путь: {absolute_path}"
             )
-            self.show_snackbar(
-                f"✅ Документ создан: {output_filename}",
-                ft.Colors.GREEN_700
-            )
+            self.show_snackbar(f"✅ Документ создан: {output_filename}", ft.Colors.GREEN_700)
 
         except Exception as ex:
             error_message = f"Произошла ошибка при создании документа:\n\n{str(ex)}"
