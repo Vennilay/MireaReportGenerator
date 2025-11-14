@@ -7,7 +7,6 @@ from docx import Document
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import urllib.request
-import ssl
 
 
 class MireaReportGenerator:
@@ -27,6 +26,7 @@ class MireaReportGenerator:
         )
 
         self.selected_directory = None
+        self.selected_save_directory = None
         self.found_files = []
         self.config_file = "config.json"
         self.selected_date = datetime.now()
@@ -42,14 +42,17 @@ class MireaReportGenerator:
         self.date_picker = None
         self.date_display = None
         self.directory_text = None
+        self.save_directory_text = None
         self.template_path_display = None
         self.file_picker = None
         self.template_file_picker = None
+        self.save_directory_picker = None
+        self.save_nearby_checkbox = None
         self.files_count_text = None
         self.show_files_btn = None
         self.generate_btn = None
+        self.select_save_dir_btn = None
 
-        # Инициализация
         self.config = self.load_config()
         self.create_ui()
 
@@ -68,7 +71,9 @@ class MireaReportGenerator:
             "teacher_name": "",
             "work_number": "",
             "last_directory": "",
-            "template_path": "template.docx"
+            "template_path": "template.docx",
+            "save_directory": "",
+            "save_nearby": True
         }
 
     def save_config(self):
@@ -80,7 +85,9 @@ class MireaReportGenerator:
                 "teacher_name": self.teacher_field.value,
                 "work_number": self.work_number_field.value,
                 "last_directory": self.selected_directory or "",
-                "template_path": self.template_path_field.value
+                "template_path": self.template_path_field.value,
+                "save_directory": self.selected_save_directory or "",
+                "save_nearby": self.save_nearby_checkbox.value
             }
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(config, indent=4, fp=f, ensure_ascii=False)
@@ -113,12 +120,41 @@ class MireaReportGenerator:
 
         self.generate_btn.update()
 
+    def on_save_nearby_changed(self, _e):
+        """Обработчик изменения чекбокса 'Сохранить рядом'"""
+        if self.save_nearby_checkbox.value:
+            self.select_save_dir_btn.disabled = True
+            self.save_directory_text.value = "Файл будет сохранён рядом с программой"
+            self.save_directory_text.color = ft.Colors.GREY_600
+        else:
+            self.select_save_dir_btn.disabled = False
+            if self.selected_save_directory:
+                self.save_directory_text.value = f"Папка сохранения: {self.selected_save_directory}"
+                self.save_directory_text.color = ft.Colors.GREEN_700
+            else:
+                self.save_directory_text.value = "Выберите папку для сохранения"
+                self.save_directory_text.color = ft.Colors.ORANGE_700
+
+        self.page.update()
+
+    def on_save_directory_selected(self, e: ft.FilePickerResultEvent):
+        """Обработчик выбора папки для сохранения"""
+        if e.path:
+            self.selected_save_directory = e.path
+            self.save_directory_text.value = f"Папка сохранения: {self.selected_save_directory}"
+            self.save_directory_text.color = ft.Colors.GREEN_700
+            self.page.update()
+            self.show_snackbar(
+                f"✅ Выбрана папка: {self.selected_save_directory}",
+                ft.Colors.GREEN_700
+            )
+
     def download_template(self, _e):
         """Скачивает шаблон с GitHub"""
         try:
             self.show_snackbar("⏳ Скачивание шаблона с GitHub...", ft.Colors.BLUE_700)
 
-            ssl_context = ssl.create_default_context()
+
 
             output_path = "template.docx"
             urllib.request.urlretrieve(self.template_url, output_path)
@@ -151,11 +187,9 @@ class MireaReportGenerator:
             bgcolor=color,
             duration=3000,
             behavior=ft.SnackBarBehavior.FLOATING,
-            # Показываем сверху с отступом
             margin=ft.margin.only(top=10, left=20, right=20),
         )
 
-        # Добавляем в начало overlay чтобы показывалось сверху
         self.page.overlay.insert(0, snackbar)
         snackbar.open = True
         self.page.update()
@@ -550,6 +584,45 @@ class MireaReportGenerator:
             )
         )
 
+        self.save_directory_picker = ft.FilePicker(on_result=self.on_save_directory_selected)
+        self.page.overlay.append(self.save_directory_picker)
+
+        self.save_nearby_checkbox = ft.Checkbox(
+            label="Сохранить рядом с программой",
+            value=self.config.get("save_nearby", True),
+            on_change=self.on_save_nearby_changed,
+            fill_color=ft.Colors.BLUE_600
+        )
+
+        self.select_save_dir_btn = ft.ElevatedButton(
+            "Выбрать папку для сохранения",
+            icon=ft.Icons.FOLDER_SPECIAL,
+            on_click=lambda _: self.save_directory_picker.get_directory_path(
+                dialog_title="Выберите папку для сохранения документа"
+            ),
+            disabled=self.config.get("save_nearby", True),
+            style=ft.ButtonStyle(
+                bgcolor=ft.Colors.TEAL_600,
+                color=ft.Colors.WHITE
+            )
+        )
+
+        if self.config.get("save_nearby", True):
+            initial_save_text = "Файл будет сохранён рядом с программой"
+            initial_save_color = ft.Colors.GREY_600
+        elif self.config.get("save_directory", ""):
+            self.selected_save_directory = self.config.get("save_directory", "")
+            initial_save_text = f"Папка сохранения: {self.selected_save_directory}"
+            initial_save_color = ft.Colors.GREEN_700
+        else:
+            initial_save_text = "Выберите папку для сохранения"
+            initial_save_color = ft.Colors.ORANGE_700
+
+        self.save_directory_text = ft.Text(
+            value=initial_save_text,
+            color=initial_save_color
+        )
+
         self.generate_btn = ft.ElevatedButton(
             "Создать DOCX документ",
             icon=ft.Icons.DESCRIPTION,
@@ -615,6 +688,13 @@ class MireaReportGenerator:
             self.directory_text,
             self.files_count_text,
             self.show_files_btn,
+
+            ft.Divider(height=20, color=ft.Colors.BLUE_200),
+
+            ft.Text("Место сохранения документа:", size=16, weight=ft.FontWeight.BOLD),
+            ft.Row([self.save_nearby_checkbox], spacing=10),
+            self.select_save_dir_btn,
+            self.save_directory_text,
 
             ft.Divider(height=20, color=ft.Colors.BLUE_200),
 
@@ -819,22 +899,37 @@ class MireaReportGenerator:
                 f"Работа_{self.work_number_field.value}_"
                 f"{self.student_field.value.replace(' ', '_')}.docx"
             )
-            final_doc.save(output_filename)
+
+            if self.save_nearby_checkbox.value:
+                output_path = output_filename
+            else:
+                if not self.selected_save_directory:
+                    self.show_dialog(
+                        "Ошибка",
+                        "Не выбрана папка для сохранения!\n\n"
+                        "Выберите папку или включите опцию 'Сохранить рядом с программой'."
+                    )
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                    return
+                output_path = os.path.join(self.selected_save_directory, output_filename)
+
+            final_doc.save(output_path)
 
             if os.path.exists(temp_file):
                 os.remove(temp_file)
 
             self.save_config()
 
-            absolute_path = os.path.abspath(output_filename)
+            absolute_path = os.path.abspath(output_path)
             self.show_dialog(
                 "Успех! 🎉",
                 f"Документ успешно создан!\n\n"
-                f"Имя файла: {output_filename}\n\n"
+                f"Имя файла: {os.path.basename(output_path)}\n\n"
                 f"Путь: {absolute_path}"
             )
             self.show_snackbar(
-                f"✅ Документ создан: {output_filename}",
+                f"✅ Документ создан: {os.path.basename(output_path)}",
                 ft.Colors.GREEN_700
             )
 
