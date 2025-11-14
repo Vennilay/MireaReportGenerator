@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -38,7 +41,7 @@ jobs:
           pip install flet
 
       - name: Build Linux app
-        run: flet build linux --project main.py
+        run: flet build linux --project Main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -46,9 +49,10 @@ jobs:
           name: linux-build
           path: build/linux/
 
-
   build-windows:
     runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
 
@@ -61,13 +65,9 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install flet
-        env:
-          PYTHONIOENCODING: utf-8
 
       - name: Build Windows app
-        run: flet build windows --project main.py
-        env:
-          PYTHONIOENCODING: utf-8
+        run: flet build windows --project Main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -91,7 +91,7 @@ jobs:
           pip install flet
 
       - name: Build macOS app
-        run: flet build macos --project main.py
+        run: flet build macos --project Main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
