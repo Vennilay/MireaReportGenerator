@@ -896,7 +896,7 @@ class MireaReportGenerator:
                 code_run.font.size = Pt(9)
 
             output_filename = (
-                f"Работа_{self.work_number_field.value}_"
+                f"Отчёт_по_практической_работе_№{self.work_number_field.value}_"
                 f"{self.student_field.value.replace(' ', '_')}.docx"
             )
 
@@ -944,4 +944,5 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
+
     ft.app(target=main)
