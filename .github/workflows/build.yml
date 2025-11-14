@@ -38,10 +38,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install flet
+          pip install flet pyinstaller
 
       - name: Build Linux app (single binary)
-        run: flet pack main.py --name MireaReportGenerator
+        run: flet pack Main.py --name MireaReportGenerator
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -64,10 +64,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install flet
+          pip install flet pyinstaller
 
       - name: Build Windows app (single exe)
-        run: flet pack main.py --name MireaReportGenerator
+        run: flet pack Main.py --name MireaReportGenerator
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -91,7 +91,7 @@ jobs:
           pip install flet
 
       - name: Build macOS app bundle
-        run: flet build macos --project main.py
+        run: flet build macos --project Main.py
 
       - name: Create DMG
         run: |
