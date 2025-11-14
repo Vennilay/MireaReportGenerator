@@ -7,6 +7,8 @@
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Flet](https://img.shields.io/badge/Flet-Latest-purple.svg)
 
+<img width="1002" height="1166" alt="изображение" src="https://github.com/user-attachments/assets/73b3b066-4847-49b0-8d69-3ae67bbe7927" />
+
 ---
 
 ## 📋 Описание
