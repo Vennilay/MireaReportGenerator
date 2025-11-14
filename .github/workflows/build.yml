@@ -100,19 +100,30 @@ jobs:
           path: build/macos/
 
   create-release:
-    needs: [build-linux, build-windows, build-macos]
+    needs: [ build-linux, build-windows, build-macos ]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
+      - name: Package builds
+        run: |
+          cd linux-build
+          tar -czf ../MireaReportGenerator-linux.tar.gz *
+          cd ../windows-build
+          zip -r ../MireaReportGenerator-windows.zip *
+          cd ../macos-build
+          zip -r ../MireaReportGenerator-macos.zip *
+          cd ..
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            linux-build/**/*
-            windows-build/**/*
-            macos-build/**/*
+            MireaReportGenerator-linux.tar.gz
+            MireaReportGenerator-windows.zip
+            MireaReportGenerator-macos.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
