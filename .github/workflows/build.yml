@@ -68,7 +68,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt --break-system-packages
-          pip install flet pyinstaller --break-system-packages
+          pip install flet pyinstaller flet-cli --break-system-packages
 
       - name: Build Linux app
         run: |
