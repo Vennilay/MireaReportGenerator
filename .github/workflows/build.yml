@@ -126,7 +126,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install flet pyinstaller pillow
+          pip install flet==0.24.1 pyinstaller pillow
 
       - name: Convert icon to ICNS
         run: |
