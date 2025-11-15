@@ -141,25 +141,6 @@ jobs:
           name: macos-build
           path: MireaReportGenerator.dmg
 
-
-      - name: Create DMG
-        run: |
-          brew install create-dmg
-          create-dmg \
-            --volname "MIREA Report Generator" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --app-drop-link 600 185 \
-            MireaReportGenerator.dmg \
-            dist/MireaReportGenerator.app
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: MireaReportGenerator.dmg
-
   create-release:
     needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
