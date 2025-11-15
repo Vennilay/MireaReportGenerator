@@ -40,8 +40,12 @@ jobs:
           pip install -r requirements.txt
           pip install flet pyinstaller
 
-      - name: Build Linux app (single binary)
-        run: flet pack main.py --name MireaReportGenerator
+      - name: Build Linux app
+        run: |
+          flet pack main.py \
+            --name MireaReportGenerator \
+            --icon icon.png \
+            --add-data "template.docx:."
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -66,8 +70,12 @@ jobs:
           pip install -r requirements.txt
           pip install flet pyinstaller
 
-      - name: Build Windows app (single exe)
-        run: flet pack main.py --name MireaReportGenerator
+      - name: Build Windows app
+        run: |
+          flet pack main.py `
+            --name MireaReportGenerator `
+            --icon icon.ico `
+            --add-data "template.docx;."
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -88,10 +96,14 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install flet
+          pip install flet pyinstaller
 
-      - name: Build macOS app bundle
-        run: flet build macos --project main.py
+      - name: Build macOS app
+        run: |
+          flet pack main.py \
+            --name MireaReportGenerator \
+            --icon icon.png \
+            --add-data "template.docx:."
 
       - name: Create DMG
         run: |
@@ -103,7 +115,7 @@ jobs:
             --icon-size 100 \
             --app-drop-link 600 185 \
             MireaReportGenerator.dmg \
-            build/macos/
+            dist/MireaReportGenerator.app
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -124,6 +136,7 @@ jobs:
           mv windows-build/MireaReportGenerator.exe MireaReportGenerator-windows.exe
           mv linux-build/MireaReportGenerator MireaReportGenerator-linux
           mv macos-build/MireaReportGenerator.dmg MireaReportGenerator-macos.dmg
+          chmod +x MireaReportGenerator-linux
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
