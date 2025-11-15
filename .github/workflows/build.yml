@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-linux:
+  build-linux-ubuntu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +50,37 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
+          name: linux-ubuntu-build
+          path: dist/MireaReportGenerator
+
+  build-linux-arch:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install base dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git python python-pip gtk3 base-devel cairo pango gdk-pixbuf2 atk
+
+      - uses: actions/checkout@v4
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt --break-system-packages
+          pip install flet pyinstaller --break-system-packages
+
+      - name: Build Linux app
+        run: |
+          flet pack main.py \
+            --name MireaReportGenerator \
+            --icon icon.png \
+            --add-data "template.docx:."
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arch-build
           path: dist/MireaReportGenerator
 
   build-windows:
@@ -101,7 +131,6 @@ jobs:
       - name: Convert icon to ICNS
         run: |
           mkdir -p icon.iconset
-
           sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
           sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
           sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
@@ -112,8 +141,26 @@ jobs:
           sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png
           sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png
           sips -z 1024 1024 icon.png --out icon.iconset/icon_512x512@2x.png
-
           iconutil -c icns icon.iconset -o icon.icns
+
+      - name: Create entitlements file
+        run: |
+          cat > entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.network.client</key>
+              <true/>
+              <key>com.apple.security.network.server</key>
+              <true/>
+              <key>com.apple.security.files.user-selected.read-write</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
 
       - name: Build macOS app
         run: |
@@ -122,16 +169,26 @@ jobs:
             --icon icon.icns \
             --add-data "template.docx:."
 
+      - name: Sign macOS app with entitlements
+        run: |
+          codesign --force --deep --sign - \
+            --entitlements entitlements.plist \
+            dist/MireaReportGenerator.app
+
       - name: Create DMG
         run: |
           brew install create-dmg
           rm -f MireaReportGenerator.dmg
           create-dmg \
             --volname "MIREA Report Generator" \
+            --volicon icon.icns \
             --window-pos 200 120 \
-            --window-size 800 400 \
+            --window-size 600 400 \
             --icon-size 100 \
-            --app-drop-link 600 185 \
+            --icon "MireaReportGenerator.app" 150 185 \
+            --hide-extension "MireaReportGenerator.app" \
+            --app-drop-link 450 185 \
+            --no-internet-enable \
             MireaReportGenerator.dmg \
             dist/MireaReportGenerator.app
 
@@ -142,7 +199,7 @@ jobs:
           path: MireaReportGenerator.dmg
 
   create-release:
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-linux-ubuntu, build-linux-arch, build-windows, build-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -152,16 +209,19 @@ jobs:
       - name: Rename files
         run: |
           mv windows-build/MireaReportGenerator.exe MireaReportGenerator-windows.exe
-          mv linux-build/MireaReportGenerator MireaReportGenerator-linux
+          mv linux-ubuntu-build/MireaReportGenerator MireaReportGenerator-linux-ubuntu
+          mv linux-arch-build/MireaReportGenerator MireaReportGenerator-linux-arch
           mv macos-build/MireaReportGenerator.dmg MireaReportGenerator-macos.dmg
-          chmod +x MireaReportGenerator-linux
+          chmod +x MireaReportGenerator-linux-ubuntu
+          chmod +x MireaReportGenerator-linux-arch
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             MireaReportGenerator-windows.exe
-            MireaReportGenerator-linux
+            MireaReportGenerator-linux-ubuntu
+            MireaReportGenerator-linux-arch
             MireaReportGenerator-macos.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

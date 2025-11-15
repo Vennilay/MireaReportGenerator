@@ -7,12 +7,9 @@ from docx import Document
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import urllib.request
-import tkinter as tk
-from tkinter import filedialog
 
 
 class MireaReportGenerator:
-    """Главный класс приложения - Генератор отчётов РТУ МИРЭА"""
 
     def __init__(self, page: ft.Page):
         self.page = page
@@ -52,11 +49,16 @@ class MireaReportGenerator:
         self.generate_btn = None
         self.select_save_dir_btn = None
 
+        self.dir_picker = ft.FilePicker(on_result=self.on_directory_selected)
+        self.template_picker = ft.FilePicker(on_result=self.on_template_selected)
+        self.save_dir_picker = ft.FilePicker(on_result=self.on_save_directory_selected)
+
+        self.page.overlay.extend([self.dir_picker, self.template_picker, self.save_dir_picker])
+
         self.config = self.load_config()
         self.create_ui()
 
     def load_config(self):
-        """Загружает сохранённые настройки из config.json"""
         try:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
@@ -76,7 +78,6 @@ class MireaReportGenerator:
         }
 
     def save_config(self):
-        """Сохраняет текущие настройки в config.json"""
         try:
             config = {
                 "group": self.group_field.value,
@@ -94,7 +95,6 @@ class MireaReportGenerator:
             self.show_snackbar(f"Ошибка сохранения конфига: {str(e)}", ft.Colors.ORANGE)
 
     def validate_form(self):
-        """Проверяет заполнение всех обязательных полей и обновляет состояние кнопки"""
         if not self.generate_btn:
             return
 
@@ -120,7 +120,6 @@ class MireaReportGenerator:
         self.generate_btn.update()
 
     def on_save_nearby_changed(self, _e):
-        """Обработчик изменения чекбокса 'Сохранить рядом'"""
         if self.save_nearby_checkbox.value:
             self.select_save_dir_btn.disabled = True
             self.save_directory_text.value = "Файл будет сохранён рядом с программой"
@@ -136,21 +135,12 @@ class MireaReportGenerator:
 
         self.page.update()
 
-    def select_directory_tkinter(self, _e):
-        """Выбор директории с кодом через tkinter"""
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
+    def select_directory_flet(self, _e):
+        self.dir_picker.get_directory_path(dialog_title="Выберите папку с файлами кода")
 
-        directory = filedialog.askdirectory(
-            title="Выберите папку с файлами кода",
-            initialdir=self.config.get("last_directory", "")
-        )
-
-        root.destroy()
-
-        if directory:
-            self.selected_directory = directory
+    def on_directory_selected(self, e: ft.FilePickerResultEvent):
+        if e.path:
+            self.selected_directory = e.path
             self.directory_text.value = f"Выбрана: {self.selected_directory}"
             self.directory_text.color = ft.Colors.GREEN_700
             self.find_code_files()
@@ -160,21 +150,16 @@ class MireaReportGenerator:
                 ft.Colors.GREEN_700
             )
 
-    def select_template_tkinter(self, _e):
-        """Выбор файла шаблона через tkinter"""
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-
-        template_path = filedialog.askopenfilename(
-            title="Выберите файл шаблона DOCX",
-            filetypes=[("Word Documents", "*.docx"), ("All files", "*.*")],
-            initialdir=os.path.dirname(self.template_path_field.value) if self.template_path_field.value else ""
+    def select_template_flet(self, _e):
+        self.template_picker.pick_files(
+            dialog_title="Выберите файл шаблона DOCX",
+            allowed_extensions=["docx"],
+            allow_multiple=False
         )
 
-        root.destroy()
-
-        if template_path:
+    def on_template_selected(self, e: ft.FilePickerResultEvent):
+        if e.files:
+            template_path = e.files[0].path
             self.template_path_field.value = template_path
             self.template_path_display.value = f"Текущий шаблон: {os.path.basename(template_path)}"
             self.template_path_display.color = ft.Colors.GREEN_700
@@ -184,21 +169,12 @@ class MireaReportGenerator:
                 ft.Colors.GREEN_700
             )
 
-    def select_save_directory_tkinter(self, _e):
-        """Выбор папки для сохранения через tkinter"""
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
+    def select_save_directory_flet(self, _e):
+        self.save_dir_picker.get_directory_path(dialog_title="Выберите папку для сохранения документа")
 
-        save_directory = filedialog.askdirectory(
-            title="Выберите папку для сохранения документа",
-            initialdir=self.config.get("save_directory", "")
-        )
-
-        root.destroy()
-
-        if save_directory:
-            self.selected_save_directory = save_directory
+    def on_save_directory_selected(self, e: ft.FilePickerResultEvent):
+        if e.path:
+            self.selected_save_directory = e.path
             self.save_directory_text.value = f"Папка сохранения: {self.selected_save_directory}"
             self.save_directory_text.color = ft.Colors.GREEN_700
             self.page.update()
@@ -208,7 +184,6 @@ class MireaReportGenerator:
             )
 
     def download_template(self, _e):
-        """Скачивает шаблон с GitHub"""
         try:
             self.show_snackbar("⏳ Скачивание шаблона с GitHub...", ft.Colors.BLUE_700)
 
@@ -237,7 +212,6 @@ class MireaReportGenerator:
             self.show_snackbar(f"❌ Ошибка скачивания: {str(e)}", ft.Colors.RED_700)
 
     def show_snackbar(self, message: str, color: str = ft.Colors.BLUE_700):
-        """Показывает уведомление в верхней части экрана (не перекрывает контент)"""
         snackbar = ft.SnackBar(
             content=ft.Text(message, color=ft.Colors.WHITE, size=14),
             bgcolor=color,
@@ -251,8 +225,6 @@ class MireaReportGenerator:
         self.page.update()
 
     def show_dialog(self, title: str, message: str):
-        """Показывает диалоговое окно с информацией или ошибкой"""
-
         def close_dialog(_e):
             dialog.open = False
             self.page.update()
@@ -272,8 +244,6 @@ class MireaReportGenerator:
         self.page.update()
 
     def show_files_dialog(self, _e):
-        """Показывает диалоговое окно со списком всех файлов"""
-
         def close_dialog(_e):
             dialog.open = False
             self.page.update()
@@ -375,8 +345,6 @@ class MireaReportGenerator:
         self.page.update()
 
     def show_about_dialog(self, _e):
-        """Показывает информацию о создателе с аватаркой"""
-
         def close_dialog(_e):
             dialog.open = False
             self.page.update()
@@ -465,8 +433,6 @@ class MireaReportGenerator:
         self.page.update()
 
     def create_ui(self):
-        """Создаёт пользовательский интерфейс"""
-
         header_row = ft.Row([
             ft.Text(
                 "MIREA Report Generator",
@@ -537,11 +503,10 @@ class MireaReportGenerator:
             hint_text="Укажите путь или имя файла шаблона"
         )
 
-        # TKINTER КНОПКА вместо FilePicker
         select_template_btn = ft.ElevatedButton(
             "Выбрать файл",
             icon=ft.Icons.FILE_OPEN,
-            on_click=self.select_template_tkinter,  # Теперь через tkinter
+            on_click=self.select_template_flet,
             style=ft.ButtonStyle(
                 bgcolor=ft.Colors.PURPLE_600,
                 color=ft.Colors.WHITE
@@ -602,11 +567,10 @@ class MireaReportGenerator:
             color=ft.Colors.GREY_700
         )
 
-        # TKINTER КНОПКА вместо FilePicker
         select_dir_btn = ft.ElevatedButton(
             "Выбрать директорию с кодом",
             icon=ft.Icons.FOLDER_OPEN,
-            on_click=self.select_directory_tkinter,  # Теперь через tkinter
+            on_click=self.select_directory_flet,
             style=ft.ButtonStyle(
                 bgcolor=ft.Colors.BLUE_600,
                 color=ft.Colors.WHITE
@@ -637,11 +601,10 @@ class MireaReportGenerator:
             fill_color=ft.Colors.BLUE_600
         )
 
-        # TKINTER КНОПКА вместо FilePicker
         self.select_save_dir_btn = ft.ElevatedButton(
             "Выбрать папку для сохранения",
             icon=ft.Icons.FOLDER_SPECIAL,
-            on_click=self.select_save_directory_tkinter,  # Теперь через tkinter
+            on_click=self.select_save_directory_flet,
             disabled=self.config.get("save_nearby", True),
             style=ft.ButtonStyle(
                 bgcolor=ft.Colors.TEAL_600,
@@ -755,12 +718,10 @@ class MireaReportGenerator:
         self.validate_form()
 
     def open_date_picker(self, _e):
-        """Открывает календарь для выбора даты"""
         self.page.open(self.date_picker)
 
     @staticmethod
     def format_date(date: datetime) -> str:
-        """Форматирует дату в нужный формат: «13» ноября 2025"""
         months = {
             1: "января", 2: "февраля", 3: "марта", 4: "апреля",
             5: "мая", 6: "июня", 7: "июля", 8: "августа",
@@ -769,7 +730,6 @@ class MireaReportGenerator:
         return f"«{date.day}» {months[date.month]} {date.year}"
 
     def on_date_changed(self, event):
-        """Обработчик изменения даты в календаре"""
         if event.control.value:
             self.selected_date = event.control.value
             self.date_display.value = self.format_date(self.selected_date)
@@ -780,11 +740,9 @@ class MireaReportGenerator:
             )
 
     def on_date_dismissed(self, _e):
-        """Обработчик закрытия календаря"""
         pass
 
     def find_code_files(self):
-        """Ищет файлы с кодом в выбранной директории"""
         if not self.selected_directory:
             return
 
@@ -817,7 +775,6 @@ class MireaReportGenerator:
         self.validate_form()
 
     def generate_document(self, _e):
-        """Генерирует DOCX документ с титульным листом и кодом"""
         try:
             if not self.group_field.value:
                 self.show_dialog("Ошибка", "Заполните поле 'Группа'!")
