@@ -7,7 +7,6 @@ import platform
 from datetime import datetime
 from typing import List, Optional
 import flet as ft
-import urllib.request
 from core.config import ConfigManager
 from core.document_generator import DocumentGenerator
 from ui.components import UIComponents
