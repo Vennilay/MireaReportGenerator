@@ -14,6 +14,7 @@ from ui.components import UIComponents
 from ui.dialogs import DialogManager
 from utils.file_utils import FileManager
 from utils.date_utils import format_date_russian
+from utils.logger import logger
 
 
 def _create_macos_warning() -> ft.Container:
@@ -76,6 +77,15 @@ class MireaReportGenerator:
         self.is_macos = platform.system() == "Darwin"
 
         self.config_manager = ConfigManager()
+
+        logger.configure(
+            enabled=self.config_manager.get("logging_enabled", True),
+            log_path=self.config_manager.get("log_directory", "logs")
+        )
+        logger.log_operation("Запуск приложения")
+        logger.info(f"Платформа: {platform.system()}")
+        logger.info(f"macOS: {self.is_macos}")
+
         self.file_manager = FileManager()
         self.dialog_manager = DialogManager(page)
         self.ui = UIComponents()
@@ -109,6 +119,11 @@ class MireaReportGenerator:
         self.generate_btn: Optional[ft.ElevatedButton] = None
         self.select_save_dir_btn: Optional[ft.ElevatedButton] = None
         self.apply_save_btn: Optional[ft.ElevatedButton] = None
+
+        self.logging_enabled_checkbox: Optional[ft.Checkbox] = None
+        self.log_directory_field: Optional[ft.TextField] = None
+        self.log_status_text: Optional[ft.Text] = None
+        self.apply_log_btn: Optional[ft.ElevatedButton] = None
 
         self.dir_picker = ft.FilePicker(on_result=self.on_directory_selected)
         self.template_picker = ft.FilePicker(on_result=self.on_template_selected)
@@ -144,6 +159,7 @@ class MireaReportGenerator:
         Формирует все секции: заголовок, поля ввода, кнопки,
         собирает их в единый макет и добавляет на страницу.
         """
+        logger.log_operation("Создание пользовательского интерфейса")
         config = self.config_manager.config
 
         header = self.ui.create_header(self.show_about_dialog)
@@ -156,6 +172,7 @@ class MireaReportGenerator:
         date_section = self._create_date_section()
         files_section = self._create_files_section(config)
         save_section = self._create_save_section(config)
+        logging_section = self._create_logging_section(config)
 
         self.generate_btn = self.ui.create_generate_button(
             self.generate_document
@@ -191,6 +208,8 @@ class MireaReportGenerator:
                 ft.Divider(height=20, color=ft.Colors.BLUE_200),
                 save_section,
                 ft.Divider(height=20, color=ft.Colors.BLUE_200),
+                logging_section,
+                ft.Divider(height=20, color=ft.Colors.BLUE_200),
                 self.generate_btn,
                 footer,
             ]
@@ -199,6 +218,7 @@ class MireaReportGenerator:
         main_column = ft.Column(controls, spacing=10)
         self.page.add(ft.Container(content=main_column, padding=20))
         self.validate_form()
+        logger.debug("Интерфейс создан успешно")
 
     def _create_form_fields(self, config) -> None:
         """
@@ -552,6 +572,80 @@ class MireaReportGenerator:
             spacing=10,
         )
 
+    def _create_logging_section(self, config) -> ft.Column:
+        """
+        Создание секции настроек логирования.
+
+        Args:
+            config: Словарь с сохранённой конфигурацией
+
+        Returns:
+            Колонка с элементами управления логированием
+        """
+        self.logging_enabled_checkbox = ft.Checkbox(
+            label="Включить подробное логирование",
+            value=config.get("logging_enabled", True),
+            on_change=self.on_logging_enabled_changed,
+            fill_color=ft.Colors.DEEP_ORANGE_600,
+        )
+
+        self.log_directory_field = ft.TextField(
+            label="Путь к директории с логами",
+            hint_text="logs",
+            value=config.get("log_directory", "logs"),
+            width=400,
+            border_color=ft.Colors.DEEP_ORANGE_400,
+            prefix_icon=ft.Icons.FOLDER,
+            disabled=not config.get("logging_enabled", True),
+            on_blur=self.on_log_directory_changed,
+        )
+
+        self.apply_log_btn = ft.ElevatedButton(
+            "Применить настройки логов",
+            icon=ft.Icons.CHECK,
+            on_click=self.on_log_directory_changed,
+            disabled=not config.get("logging_enabled", True),
+            style=ft.ButtonStyle(
+                bgcolor=ft.Colors.DEEP_ORANGE_600,
+                color=ft.Colors.WHITE,
+            ),
+        )
+
+        self.log_status_text = ft.Text(
+            value=(
+                f"✅ Логирование включено: {config.get('log_directory', 'logs')}"
+                if config.get("logging_enabled", True)
+                else "❌ Логирование выключено"
+            ),
+            color=(
+                ft.Colors.GREEN_700
+                if config.get("logging_enabled", True)
+                else ft.Colors.GREY_600
+            ),
+            size=12,
+        )
+
+        return ft.Column(
+            [
+                ft.Text(
+                    "Настройки логирования:",
+                    size=16,
+                    weight=ft.FontWeight.BOLD,
+                ),
+                ft.Row([self.logging_enabled_checkbox], spacing=10),
+                self.log_directory_field,
+                self.apply_log_btn,
+                self.log_status_text,
+                ft.Text(
+                    "💡 Логи помогают отслеживать все операции и находить ошибки",
+                    color=ft.Colors.BLUE_GREY_600,
+                    size=11,
+                    italic=True,
+                ),
+            ],
+            spacing=10,
+        )
+
     def _create_file_picker_button(
         self,
         text: str,
@@ -625,6 +719,8 @@ class MireaReportGenerator:
         if not path:
             return
 
+        logger.log_operation("Ручной ввод пути к директории", path)
+
         if not os.path.exists(path):
             self._handle_invalid_directory_path(path, "не существует")
             return
@@ -653,6 +749,7 @@ class MireaReportGenerator:
             path: Введённый путь
             reason: Причина ошибки
         """
+        logger.warning(f"Некорректный путь к директории: {path} ({reason})")
         self.selected_directory = None
         self.found_files = []
         self.directory_text.value = f"❌ Путь {reason}: {path}"
@@ -673,9 +770,12 @@ class MireaReportGenerator:
         if not path:
             return
 
+        logger.log_operation("Ручной ввод пути к шаблону", path)
+
         if not os.path.exists(path):
             self.template_path_display.value = f"❌ Файл не найден: {path}"
             self.template_path_display.color = ft.Colors.RED_700
+            logger.warning(f"Шаблон не найден: {path}")
             self.page.update()
             return
 
@@ -685,6 +785,7 @@ class MireaReportGenerator:
         )
         self.template_path_display.color = ft.Colors.GREEN_700
         self.page.update()
+        logger.log_file_operation("Выбран шаблон", path, "успешно")
         self.dialog_manager.show_snackbar(
             f"✅ Выбран шаблон: {os.path.basename(path)}",
             ft.Colors.GREEN_700,
@@ -702,6 +803,8 @@ class MireaReportGenerator:
         path = (self.save_directory_input_field.value or "").strip()
         if not path:
             return
+
+        logger.log_operation("Ручной ввод пути для сохранения", path)
 
         if not os.path.exists(path):
             self._handle_invalid_save_path(path, "не существует")
@@ -728,9 +831,62 @@ class MireaReportGenerator:
             path: Введённый путь
             reason: Причина ошибки
         """
+        logger.warning(f"Некорректный путь для сохранения: {path} ({reason})")
         self.selected_save_directory = None
         self.save_directory_text.value = f"❌ Путь {reason}: {path}"
         self.save_directory_text.color = ft.Colors.RED_700
+        self.page.update()
+
+    def on_logging_enabled_changed(self, _e):
+        """Обработчик изменения состояния логирования"""
+        is_enabled = self.logging_enabled_checkbox.value
+
+        self.log_directory_field.disabled = not is_enabled
+        self.apply_log_btn.disabled = not is_enabled
+
+        if is_enabled:
+            log_dir = self.log_directory_field.value or "logs"
+            logger.configure(enabled=True, log_path=log_dir)
+            self.log_status_text.value = f"✅ Логирование включено: {log_dir}"
+            self.log_status_text.color = ft.Colors.GREEN_700
+            logger.log_operation("Логирование включено пользователем")
+        else:
+            logger.log_operation("Логирование выключено пользователем")
+            logger.configure(enabled=False, log_path="logs")
+            self.log_status_text.value = "❌ Логирование выключено"
+            self.log_status_text.color = ft.Colors.GREY_600
+
+        self.config_manager.update("logging_enabled", is_enabled)
+        self.page.update()
+
+    def on_log_directory_changed(self, _e):
+        """Обработчик изменения пути к логам"""
+        if not self.logging_enabled_checkbox.value:
+            return
+
+        log_dir = self.log_directory_field.value.strip() or "logs"
+
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+            logger.configure(
+                enabled=self.logging_enabled_checkbox.value,
+                log_path=log_dir
+            )
+            self.log_status_text.value = f"✅ Логирование включено: {log_dir}"
+            self.log_status_text.color = ft.Colors.GREEN_700
+
+            self.config_manager.update("log_directory", log_dir)
+
+            logger.log_operation("Изменён путь к логам", log_dir)
+            self.dialog_manager.show_snackbar(
+                f"✅ Путь к логам обновлён: {log_dir}",
+                ft.Colors.GREEN_700,
+            )
+        except Exception as e:
+            self.log_status_text.value = f"❌ Ошибка создания директории: {log_dir}"
+            self.log_status_text.color = ft.Colors.RED_700
+            logger.log_exception("Изменение пути к логам", e)
+
         self.page.update()
 
     def validate_form(self) -> None:
@@ -778,6 +934,7 @@ class MireaReportGenerator:
         Управляет доступностью полей ввода пути и кнопок выбора директории.
         """
         is_nearby = self.save_nearby_checkbox.value
+        logger.debug(f"Изменение режима сохранения: nearby={is_nearby}")
 
         self.select_save_dir_btn.disabled = is_nearby or self.is_macos
         self.save_directory_input_field.disabled = is_nearby
@@ -818,12 +975,14 @@ class MireaReportGenerator:
         На macOS показывает предупреждение вместо диалога.
         """
         if self.is_macos:
+            logger.warning("Попытка открыть диалог выбора файла на macOS")
             self.dialog_manager.show_alert(
                 "Ограничение платформы",
                 "На macOS диалоги выбора файлов могут работать некорректно.\n\n"
                 "Пожалуйста, используйте ручной ввод пути в текстовое поле.",
             )
             return
+        logger.log_operation("Открытие диалога выбора директории")
         self.dir_picker.get_directory_path(
             dialog_title="Выберите папку с файлами кода"
         )
@@ -836,6 +995,7 @@ class MireaReportGenerator:
             e: Событие с результатом выбора пути
         """
         if e.path:
+            logger.log_operation("Директория выбрана через диалог", e.path)
             self.selected_directory = e.path
             self.directory_input_field.value = e.path
             self.directory_text.value = f"Выбрана: {self.selected_directory}"
@@ -854,12 +1014,14 @@ class MireaReportGenerator:
         На macOS показывает предупреждение вместо диалога.
         """
         if self.is_macos:
+            logger.warning("Попытка открыть диалог выбора шаблона на macOS")
             self.dialog_manager.show_alert(
                 "Ограничение платформы",
                 "На macOS диалоги выбора файлов могут работать некорректно.\n\n"
                 "Пожалуйста, используйте ручной ввод пути в текстовое поле.",
             )
             return
+        logger.log_operation("Открытие диалога выбора шаблона")
         self.template_picker.pick_files(
             dialog_title="Выберите файл шаблона DOCX",
             allowed_extensions=["docx"],
@@ -875,6 +1037,7 @@ class MireaReportGenerator:
         """
         if e.files:
             template_path = e.files[0].path
+            logger.log_operation("Шаблон выбран через диалог", template_path)
             self.template_path_field.value = template_path
             self.template_input_field.value = template_path
             self.template_path_display.value = (
@@ -894,12 +1057,14 @@ class MireaReportGenerator:
         На macOS показывает предупреждение вместо диалога.
         """
         if self.is_macos:
+            logger.warning("Попытка открыть диалог выбора директории сохранения на macOS")
             self.dialog_manager.show_alert(
                 "Ограничение платформы",
                 "На macOS диалоги выбора файлов могут работать некорректно.\n\n"
                 "Пожалуйста, используйте ручной ввод пути в текстовое поле.",
             )
             return
+        logger.log_operation("Открытие диалога выбора директории для сохранения")
         self.save_dir_picker.get_directory_path(
             dialog_title="Выберите папку для сохранения документа"
         )
@@ -912,6 +1077,7 @@ class MireaReportGenerator:
             e: Событие с результатом выбора пути
         """
         if e.path:
+            logger.log_operation("Директория сохранения выбрана через диалог", e.path)
             self.selected_save_directory = e.path
             self.save_directory_input_field.value = e.path
             self.save_directory_text.value = (
@@ -930,6 +1096,7 @@ class MireaReportGenerator:
 
         Загружает template.docx из репозитория и сохраняет локально.
         """
+        logger.log_operation("Начало скачивания шаблона с GitHub")
         try:
             self.dialog_manager.show_snackbar(
                 "⏳ Скачивание шаблона с GitHub...", ft.Colors.BLUE_700
@@ -945,6 +1112,7 @@ class MireaReportGenerator:
             self.template_path_display.color = ft.Colors.GREEN_700
 
             self.page.update()
+            logger.log_file_operation("Скачивание шаблона", output_path, "успешно")
             self.dialog_manager.show_snackbar(
                 "✅ Шаблон успешно скачан с GitHub!", ft.Colors.GREEN_700
             )
@@ -956,6 +1124,7 @@ class MireaReportGenerator:
             )
 
         except Exception as e:
+            logger.log_exception("Скачивание шаблона с GitHub", e)
             error_message = (
                 "Не удалось скачать шаблон:\n\n"
                 f"{str(e)}\n\n"
@@ -968,6 +1137,7 @@ class MireaReportGenerator:
 
     def open_date_picker(self, _e) -> None:
         """Открытие календаря для выбора даты документа."""
+        logger.debug("Открытие календаря для выбора даты")
         self.page.open(self.date_picker)
 
     def on_date_changed(self, event) -> None:
@@ -980,6 +1150,7 @@ class MireaReportGenerator:
         if event.control.value:
             self.selected_date = event.control.value
             self.date_display.value = self._format_date(self.selected_date)
+            logger.log_operation("Дата изменена", self._format_date(self.selected_date))
             self.page.update()
             self.dialog_manager.show_snackbar(
                 f"✅ Дата выбрана: {self._format_date(self.selected_date)}",
@@ -988,7 +1159,7 @@ class MireaReportGenerator:
 
     def on_date_dismissed(self, _e) -> None:
         """Обработчик закрытия календаря без выбора даты."""
-        pass
+        logger.debug("Календарь закрыт без изменений")
 
     def find_code_files(self) -> None:
         """
@@ -1012,19 +1183,23 @@ class MireaReportGenerator:
             self.files_count_text.color = ft.Colors.GREEN_700
             self.files_count_text.weight = ft.FontWeight.BOLD
             self.show_files_btn.visible = True
+            logger.info(f"Найдено {len(self.found_files)} файлов с кодом")
         else:
             self.files_count_text.value = "❌ Файлы с кодом не найдены"
             self.files_count_text.color = ft.Colors.ORANGE_700
             self.show_files_btn.visible = False
+            logger.warning("Файлы с кодом не найдены")
 
         self.validate_form()
 
     def show_files_dialog(self, _e) -> None:
         """Открытие диалогового окна со списком найденных файлов."""
+        logger.debug(f"Отображение списка из {len(self.found_files)} файлов")
         self.dialog_manager.show_files_list(self.found_files)
 
     def show_about_dialog(self, _e) -> None:
         """Открытие диалогового окна "О создателе"."""
+        logger.debug("Открытие диалога 'О создателе'")
         self.dialog_manager.show_about(self.AVATAR_URL, self.REPO_URL)
 
     def generate_document(self, _e) -> None:
@@ -1038,6 +1213,9 @@ class MireaReportGenerator:
         4. Сохранение конфигурации
         5. Вывод результата пользователю
         """
+        logger.info("=" * 70)
+        logger.log_operation("Пользователь запустил генерацию документа")
+
         if not self._validate_generation_inputs():
             return
 
@@ -1046,6 +1224,7 @@ class MireaReportGenerator:
         )
 
         if not os.path.exists(template_path):
+            logger.error(f"Шаблон не найден: {template_path}")
             self.dialog_manager.show_alert(
                 "Ошибка",
                 "Файл шаблона не найден: "
@@ -1070,6 +1249,8 @@ class MireaReportGenerator:
             if not output_path:
                 return
 
+            logger.info(f"Путь сохранения: {output_path}")
+
             success = doc_generator.generate(
                 group=self.group_field.value,
                 student_name=self.student_field.value,
@@ -1084,12 +1265,14 @@ class MireaReportGenerator:
                 self._save_current_config()
                 self._show_success_message(output_path)
             else:
+                logger.error("Не удалось создать документ")
                 self.dialog_manager.show_alert(
                     "Ошибка",
                     "Не удалось создать документ. Проверьте логи.",
                 )
 
         except Exception as ex:
+            logger.log_exception("Генерация документа", ex)
             error_message = (
                 "Произошла ошибка при создании документа:\n\n" f"{str(ex)}"
             )
@@ -1114,18 +1297,21 @@ class MireaReportGenerator:
 
         for value, field_name in validations:
             if not value:
+                logger.warning(f"Не заполнено поле: {field_name}")
                 self.dialog_manager.show_alert(
                     "Ошибка", f"Заполните поле '{field_name}'!"
                 )
                 return False
 
         if not self.found_files:
+            logger.warning("Не выбраны файлы с кодом")
             self.dialog_manager.show_alert(
                 "Ошибка",
                 "Не выбраны файлы с кодом! Выберите директорию с файлами.",
             )
             return False
 
+        logger.debug("Валидация полей прошла успешно")
         return True
 
     def _determine_output_path(self, filename: str) -> Optional[str]:
@@ -1139,9 +1325,11 @@ class MireaReportGenerator:
             Полный путь для сохранения или None при ошибке
         """
         if self.save_nearby_checkbox.value:
+            logger.debug(f"Сохранение рядом с программой: {filename}")
             return filename
 
         if not self.selected_save_directory:
+            logger.warning("Не выбрана папка для сохранения")
             self.dialog_manager.show_alert(
                 "Ошибка",
                 "Не выбрана папка для сохранения!\n\n"
@@ -1150,7 +1338,9 @@ class MireaReportGenerator:
             )
             return None
 
-        return os.path.join(self.selected_save_directory, filename)
+        output_path = os.path.join(self.selected_save_directory, filename)
+        logger.debug(f"Сохранение в выбранную папку: {output_path}")
+        return output_path
 
     def _show_success_message(self, output_path: str) -> None:
         """
@@ -1160,6 +1350,7 @@ class MireaReportGenerator:
             output_path: Путь к созданному документу
         """
         absolute_path = os.path.abspath(output_path)
+        logger.info(f"Документ успешно создан: {absolute_path}")
         self.dialog_manager.show_alert(
             "Успех! 🎉",
             "Документ успешно создан!\n\n"
@@ -1187,8 +1378,11 @@ class MireaReportGenerator:
             "template_path": self.template_path_field.value,
             "save_directory": self.selected_save_directory or "",
             "save_nearby": self.save_nearby_checkbox.value,
+            "logging_enabled": self.logging_enabled_checkbox.value,
+            "log_directory": self.log_directory_field.value or "logs",
         }
         self.config_manager.save(config_data)
+        logger.debug("Конфигурация сохранена")
 
     @staticmethod
     def _format_date(date: datetime) -> str:

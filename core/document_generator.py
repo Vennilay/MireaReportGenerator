@@ -1,15 +1,13 @@
-"""
-Модуль для генерации DOCX документов
-"""
-
 import os
 from datetime import datetime
 from typing import List
 from docxtpl import DocxTemplate
 from docx import Document
+from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 from utils.date_utils import format_date_russian
+from utils.logger import logger
 
 
 class DocumentGenerator:
@@ -19,9 +17,15 @@ class DocumentGenerator:
 
     def __init__(self, template_path: str):
         self.template_path = template_path
+        logger.log_operation("Инициализация DocumentGenerator", f"Шаблон: {template_path}")
 
     def validate_template(self) -> bool:
-        return os.path.exists(self.template_path)
+        exists = os.path.exists(self.template_path)
+        if exists:
+            logger.debug(f"Шаблон найден: {self.template_path}")
+        else:
+            logger.warning(f"Шаблон не найден: {self.template_path}")
+        return exists
 
     def generate(
         self,
@@ -33,8 +37,22 @@ class DocumentGenerator:
         code_files: List[str],
         output_path: str,
     ) -> bool:
+        logger.info("=" * 70)
+        logger.log_operation("Начало генерации документа")
+        logger.info(f"  Группа: {group}")
+        logger.info(f"  Студент: {student_name}")
+        logger.info(f"  Преподаватель: {teacher_name}")
+        logger.info(f"  Номер работы: {work_number}")
+        logger.info(f"  Дата: {format_date_russian(date)}")
+        logger.info(f"  Количество файлов кода: {len(code_files)}")
+        logger.info(f"  Путь сохранения: {output_path}")
+
         try:
+            logger.info("Загрузка шаблона DOCX...")
             doc = DocxTemplate(self.template_path)
+            logger.log_file_operation("Загрузка шаблона", self.template_path, "успешно")
+
+
             context = {
                 "group": group,
                 "student_name": student_name,
@@ -42,27 +60,59 @@ class DocumentGenerator:
                 "work_number": work_number,
                 "date": format_date_russian(date),
             }
+            logger.debug(f"Контекст для рендеринга: {context}")
+
+            logger.info("Рендеринг титульного листа...")
             doc.render(context)
+            logger.log_operation("Титульный лист отрендерен")
 
             temp_file = "temp_output.docx"
+            logger.debug(f"Сохранение промежуточного файла: {temp_file}")
             doc.save(temp_file)
+            logger.log_file_operation("Создание временного файла", temp_file, "успешно")
 
+            logger.info("Открытие документа для добавления файлов кода...")
             final_doc = Document(temp_file)
 
             for idx, file_path in enumerate(code_files, 1):
-                if idx > 1:
-                    final_doc.add_page_break()
-                self._add_task_heading(final_doc, idx)
-                code_content = self._read_code_file(file_path)
-                self._add_code_content(final_doc, code_content)
+                logger.info(f"Обработка файла {idx}/{len(code_files)}: {os.path.basename(file_path)}")
 
+                if idx > 1:
+                    logger.debug(f"  └─ Добавление разрыва страницы перед заданием {idx}")
+                    final_doc.add_page_break()
+
+                self._add_task_heading(final_doc, idx)
+                logger.debug(f"  └─ Заголовок 'Задание № {idx}' добавлен")
+
+                code_content = self._read_code_file(file_path)
+                if "[Ошибка чтения файла" in code_content:
+                    logger.warning(f"  └─ Ошибка чтения: {file_path}")
+                else:
+                    code_lines = len(code_content.splitlines())
+                    code_size = len(code_content)
+                    logger.debug(f"  └─ Прочитано {code_lines} строк, {code_size} байт")
+
+                self._add_code_content(final_doc, code_content)
+                logger.log_file_operation("Добавление кода", file_path, "успешно")
+
+            logger.info(f"Сохранение финального документа: {output_path}")
             final_doc.save(output_path)
+            logger.log_file_operation("Сохранение документа", output_path, "успешно")
 
             if os.path.exists(temp_file):
+                logger.debug(f"Удаление временного файла: {temp_file}")
                 os.remove(temp_file)
+                logger.log_file_operation("Удаление временного файла", temp_file, "успешно")
 
+            logger.info("=" * 70)
+            logger.log_operation("Генерация документа завершена успешно", f"Файл: {output_path}")
+            logger.info("=" * 70)
             return True
+
         except Exception as e:
+            logger.error("=" * 70)
+            logger.log_exception("Генерация документа", e)
+            logger.error("=" * 70)
             print(f"Ошибка генерации документа: {str(e)}")
             return False
 
@@ -83,12 +133,15 @@ class DocumentGenerator:
     def _read_code_file(file_path: str) -> str:
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
+                content = f.read()
+                return content
         except Exception as e:
-            return (
+            error_msg = (
                 f"[Ошибка чтения файла: {os.path.basename(file_path)}\n"
                 f"Причина: {str(e)}]"
             )
+            logger.error(f"Не удалось прочитать файл {file_path}: {str(e)}")
+            return error_msg
 
     @staticmethod
     def _add_code_content(doc, code_content: str):
@@ -107,4 +160,6 @@ class DocumentGenerator:
     @staticmethod
     def generate_filename(work_number: str, student_name: str) -> str:
         safe_name = student_name.replace(" ", "_")
-        return f"Отчёт_по_практической_работе_№{work_number}_{safe_name}.docx"
+        filename = f"Отчёт_по_практической_работе_№{work_number}_{safe_name}.docx"
+        logger.debug(f"Сгенерировано имя файла: {filename}")
+        return filename
