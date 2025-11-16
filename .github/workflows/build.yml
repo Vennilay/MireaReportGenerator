@@ -44,7 +44,7 @@ jobs:
         run: |
           flet pack main.py \
             --name MireaReportGenerator \
-            --icon icon.png \
+            --icon assets/icon.png \
             --add-data "template.docx:."
 
       - name: Upload artifact
@@ -74,7 +74,7 @@ jobs:
         run: |
           flet pack main.py \
             --name MireaReportGenerator \
-            --icon icon.png \
+            --icon assets/icon.png \
             --add-data "template.docx:."
 
       - name: Upload artifact
@@ -104,14 +104,65 @@ jobs:
         run: |
           flet pack main.py `
             --name MireaReportGenerator `
-            --icon icon.ico `
+            --icon assets/icon.ico `
             --add-data "template.docx;."
 
-      - name: Upload artifact
+      - name: Create Inno Setup script
+        run: |
+          @"
+          #define MyAppName "MIREA Report Generator"
+          #define MyAppVersion "1.0"
+          #define MyAppPublisher "Roman"
+          #define MyAppExeName "MireaReportGenerator.exe"
+          
+          [Setup]
+          AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          AppPublisher={#MyAppPublisher}
+          DefaultDirName={autopf}\{#MyAppName}
+          DefaultGroupName={#MyAppName}
+          AllowNoIcons=yes
+          OutputDir=installer_output
+          OutputBaseFilename=MireaReportGenerator-Setup
+          Compression=lzma
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          SetupIconFile=assets\icon.ico
+          UninstallDisplayIcon={app}\{#MyAppExeName}
+          
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+          Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+          
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          
+          [Files]
+          Source: "dist\MireaReportGenerator.exe"; DestDir: "{app}"; Flags: ignoreversion
+          Source: "template.docx"; DestDir: "{app}"; Flags: ignoreversion
+          
+          [Icons]
+          Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+          Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+          Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+          
+          [Run]
+          Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+          "@ | Out-File -FilePath setup.iss -Encoding utf8
+
+      - name: Compile Inno Setup script
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.4
+        with:
+          path: setup.iss
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: dist/MireaReportGenerator.exe
+          name: windows-installer
+          path: installer_output/MireaReportGenerator-Setup.exe
 
   build-macos:
     runs-on: macos-latest
@@ -131,16 +182,16 @@ jobs:
       - name: Convert icon to ICNS
         run: |
           mkdir -p icon.iconset
-          sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
-          sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
-          sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
-          sips -z 64 64     icon.png --out icon.iconset/icon_32x32@2x.png
-          sips -z 128 128   icon.png --out icon.iconset/icon_128x128.png
-          sips -z 256 256   icon.png --out icon.iconset/icon_128x128@2x.png
-          sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png
-          sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png
-          sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png
-          sips -z 1024 1024 icon.png --out icon.iconset/icon_512x512@2x.png
+          sips -z 16 16     assets/icon.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32     assets/icon.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     assets/icon.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64     assets/icon.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   assets/icon.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256   assets/icon.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   assets/icon.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512   assets/icon.png --out icon.iconset/icon_256x256@2x.png
+          sips -z 512 512   assets/icon.png --out icon.iconset/icon_512x512.png
+          sips -z 1024 1024 assets/icon.png --out icon.iconset/icon_512x512@2x.png
           iconutil -c icns icon.iconset -o icon.icns
 
       - name: Create entitlements file
@@ -159,10 +210,6 @@ jobs:
               <key>com.apple.security.network.client</key>
               <true/>
               <key>com.apple.security.network.server</key>
-              <true/>
-              <key>com.apple.security.files.user-selected.read-write</key>
-              <true/>
-              <key>com.apple.security.files.downloads.read-write</key>
               <true/>
           </dict>
           </plist>
@@ -215,7 +262,7 @@ jobs:
 
       - name: Rename files
         run: |
-          mv windows-build/MireaReportGenerator.exe MireaReportGenerator-windows.exe
+          mv windows-installer/MireaReportGenerator-Setup.exe MireaReportGenerator-windows-installer.exe
           mv linux-ubuntu-build/MireaReportGenerator MireaReportGenerator-linux-ubuntu
           mv linux-arch-build/MireaReportGenerator MireaReportGenerator-linux-arch
           mv macos-build/MireaReportGenerator.dmg MireaReportGenerator-macos.dmg
@@ -226,7 +273,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            MireaReportGenerator-windows.exe
+            MireaReportGenerator-windows-installer.exe
             MireaReportGenerator-linux-ubuntu
             MireaReportGenerator-linux-arch
             MireaReportGenerator-macos.dmg
