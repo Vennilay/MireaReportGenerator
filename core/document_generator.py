@@ -1,8 +1,12 @@
+"""
+Модуль для генерации DOCX документов
+"""
+
 import os
+import tempfile
 from datetime import datetime
 from typing import List
 from docxtpl import DocxTemplate
-from docx import Document
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
@@ -28,14 +32,14 @@ class DocumentGenerator:
         return exists
 
     def generate(
-        self,
-        group: str,
-        student_name: str,
-        teacher_name: str,
-        work_number: str,
-        date: datetime,
-        code_files: List[str],
-        output_path: str,
+            self,
+            group: str,
+            student_name: str,
+            teacher_name: str,
+            work_number: str,
+            date: datetime,
+            code_files: List[str],
+            output_path: str,
     ) -> bool:
         logger.info("=" * 70)
         logger.log_operation("Начало генерации документа")
@@ -52,7 +56,6 @@ class DocumentGenerator:
             doc = DocxTemplate(self.template_path)
             logger.log_file_operation("Загрузка шаблона", self.template_path, "успешно")
 
-
             context = {
                 "group": group,
                 "student_name": student_name,
@@ -66,9 +69,10 @@ class DocumentGenerator:
             doc.render(context)
             logger.log_operation("Титульный лист отрендерен")
 
-            temp_file = "temp_output.docx"
-            logger.debug(f"Сохранение промежуточного файла: {temp_file}")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+                temp_file = tmp.name
             doc.save(temp_file)
+            logger.debug(f"Сохранение временного файла: {temp_file}")
             logger.log_file_operation("Создание временного файла", temp_file, "успешно")
 
             logger.info("Открытие документа для добавления файлов кода...")
