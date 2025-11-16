@@ -24,6 +24,12 @@ class DocumentGenerator:
         logger.log_operation("Инициализация DocumentGenerator", f"Шаблон: {template_path}")
 
     def validate_template(self) -> bool:
+        """
+        Проверка существования файла шаблона.
+
+        Returns:
+            True если шаблон существует, False иначе
+        """
         exists = os.path.exists(self.template_path)
         if exists:
             logger.debug(f"Шаблон найден: {self.template_path}")
@@ -32,15 +38,30 @@ class DocumentGenerator:
         return exists
 
     def generate(
-            self,
-            group: str,
-            student_name: str,
-            teacher_name: str,
-            work_number: str,
-            date: datetime,
-            code_files: List[str],
-            output_path: str,
+        self,
+        group: str,
+        student_name: str,
+        teacher_name: str,
+        work_number: str,
+        date: datetime,
+        code_files: List[str],
+        output_path: str,
     ) -> bool:
+        """
+        Генерация DOCX документа с титульным листом и кодом.
+
+        Args:
+            group: Название группы студента
+            student_name: ФИО студента
+            teacher_name: ФИО преподавателя
+            work_number: Номер работы
+            date: Дата документа
+            code_files: Список путей к файлам с кодом
+            output_path: Путь для сохранения документа
+
+        Returns:
+            True при успешной генерации, False при ошибке
+        """
         logger.info("=" * 70)
         logger.log_operation("Начало генерации документа")
         logger.info(f"  Группа: {group}")
@@ -50,6 +71,8 @@ class DocumentGenerator:
         logger.info(f"  Дата: {format_date_russian(date)}")
         logger.info(f"  Количество файлов кода: {len(code_files)}")
         logger.info(f"  Путь сохранения: {output_path}")
+
+        temp_file = None
 
         try:
             logger.info("Загрузка шаблона DOCX...")
@@ -71,8 +94,9 @@ class DocumentGenerator:
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
                 temp_file = tmp.name
+
+            logger.debug(f"Сохранение промежуточного файла: {temp_file}")
             doc.save(temp_file)
-            logger.debug(f"Сохранение временного файла: {temp_file}")
             logger.log_file_operation("Создание временного файла", temp_file, "успешно")
 
             logger.info("Открытие документа для добавления файлов кода...")
@@ -103,7 +127,7 @@ class DocumentGenerator:
             final_doc.save(output_path)
             logger.log_file_operation("Сохранение документа", output_path, "успешно")
 
-            if os.path.exists(temp_file):
+            if temp_file and os.path.exists(temp_file):
                 logger.debug(f"Удаление временного файла: {temp_file}")
                 os.remove(temp_file)
                 logger.log_file_operation("Удаление временного файла", temp_file, "успешно")
@@ -117,11 +141,27 @@ class DocumentGenerator:
             logger.error("=" * 70)
             logger.log_exception("Генерация документа", e)
             logger.error("=" * 70)
+
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    logger.debug(f"Попытка удаления временного файла после ошибки: {temp_file}")
+                    os.remove(temp_file)
+                    logger.debug("Временный файл удалён")
+                except Exception as cleanup_error:
+                    logger.warning(f"Не удалось удалить временный файл: {cleanup_error}")
+
             print(f"Ошибка генерации документа: {str(e)}")
             return False
 
     @staticmethod
     def _add_task_heading(doc, task_number: int):
+        """
+        Добавление заголовка задания в документ.
+
+        Args:
+            doc: Объект документа
+            task_number: Номер задания
+        """
         heading = doc.add_paragraph()
         heading.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         heading.paragraph_format.first_line_indent = Cm(1.25)
@@ -135,6 +175,15 @@ class DocumentGenerator:
 
     @staticmethod
     def _read_code_file(file_path: str) -> str:
+        """
+        Чтение содержимого файла с кодом.
+
+        Args:
+            file_path: Путь к файлу
+
+        Returns:
+            Содержимое файла или сообщение об ошибке
+        """
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
@@ -149,6 +198,13 @@ class DocumentGenerator:
 
     @staticmethod
     def _add_code_content(doc, code_content: str):
+        """
+        Добавление содержимого кода в документ.
+
+        Args:
+            doc: Объект документа
+            code_content: Текст кода для добавления
+        """
         code_para = doc.add_paragraph()
         code_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
         code_para.paragraph_format.left_indent = Cm(1.25)
@@ -163,6 +219,16 @@ class DocumentGenerator:
 
     @staticmethod
     def generate_filename(work_number: str, student_name: str) -> str:
+        """
+        Генерация имени файла для документа.
+
+        Args:
+            work_number: Номер работы
+            student_name: ФИО студента
+
+        Returns:
+            Имя файла
+        """
         safe_name = student_name.replace(" ", "_")
         filename = f"Отчёт_по_практической_работе_№{work_number}_{safe_name}.docx"
         logger.debug(f"Сгенерировано имя файла: {filename}")
