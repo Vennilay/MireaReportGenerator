@@ -4,6 +4,8 @@
 
 import os
 import platform
+import ssl
+import urllib.request
 from datetime import datetime
 from typing import List, Optional
 import flet as ft
@@ -14,6 +16,7 @@ from ui.dialogs import DialogManager
 from utils.file_utils import FileManager
 from utils.date_utils import format_date_russian
 from utils.logger import logger
+
 
 
 def _create_macos_warning() -> ft.Container:
@@ -1116,9 +1119,6 @@ class MireaReportGenerator:
                 documents_path = os.path.expanduser("~/Documents")
                 if os.path.exists(documents_path):
                     output_path = os.path.join(documents_path, "template.docx")
-
-            import ssl
-            import urllib.request
 
             context = ssl._create_unverified_context()
 
