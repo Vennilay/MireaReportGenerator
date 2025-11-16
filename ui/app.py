@@ -458,7 +458,7 @@ class MireaReportGenerator:
         """
         Создание секции настроек сохранения документа.
 
-        Позволяет выбрать сохранение рядом с программой или в указанной папке.
+        Позволяет выбрать сохранение в документы пользователя или в указанной папке.
 
         Args:
             config: Словарь с сохранённой конфигурацией
@@ -466,8 +466,14 @@ class MireaReportGenerator:
         Returns:
             Колонка с элементами настройки места сохранения
         """
+        save_label = (
+            "Сохранить в папку Документы"
+            if self.is_macos
+            else "Сохранить в папку Документы"
+        )
+
         self.save_nearby_checkbox = ft.Checkbox(
-            label="Сохранить рядом с программой",
+            label=save_label,
             value=config.get("save_nearby", True),
             on_change=self.on_save_nearby_changed,
             fill_color=ft.Colors.BLUE_600,
@@ -476,9 +482,9 @@ class MireaReportGenerator:
         self.save_directory_input_field = ft.TextField(
             label="Или введите путь к папке для сохранения",
             hint_text=(
-                "/Users/username/Documents"
+                "/Users/username/Desktop"
                 if self.is_macos
-                else "C:\\Users\\username\\Documents"
+                else "C:\\Users\\username\\Desktop"
             ),
             value=config.get("save_directory", ""),
             width=500,
@@ -534,8 +540,10 @@ class MireaReportGenerator:
             ),
         )
 
+        documents_path = os.path.expanduser("~/Documents")
+
         if config.get("save_nearby", True):
-            initial_text = "Файл будет сохранён рядом с программой"
+            initial_text = f"Файл будет сохранён в: {documents_path}"
             initial_color = ft.Colors.GREY_600
         elif config.get("save_directory", ""):
             self.selected_save_directory = config.get("save_directory", "")
@@ -571,7 +579,6 @@ class MireaReportGenerator:
             ],
             spacing=10,
         )
-
     def _create_logging_section(self, config) -> ft.Column:
         """
         Создание секции настроек логирования.
@@ -929,7 +936,7 @@ class MireaReportGenerator:
 
     def on_save_nearby_changed(self, _e) -> None:
         """
-        Обработчик изменения чекбокса "Сохранить рядом с программой".
+        Обработчик изменения чекбокса сохранения в документы.
 
         Управляет доступностью полей ввода пути и кнопок выбора директории.
         """
@@ -940,11 +947,13 @@ class MireaReportGenerator:
         self.save_directory_input_field.disabled = is_nearby
         self.apply_save_btn.disabled = is_nearby
 
+        documents_path = os.path.expanduser("~/Documents")
+
         if is_nearby:
             self.select_save_dir_btn.style.bgcolor = ft.Colors.GREY_300
             self.select_save_dir_btn.style.color = ft.Colors.GREY_700
             self.save_directory_text.value = (
-                "Файл будет сохранён рядом с программой"
+                f"Файл будет сохранён в: {documents_path}"
             )
             self.save_directory_text.color = ft.Colors.GREY_600
         else:
@@ -1103,11 +1112,24 @@ class MireaReportGenerator:
             )
 
             output_path = "template.docx"
-            urllib.request.urlretrieve(self.TEMPLATE_URL, output_path)
+
+            if self.is_macos:
+                documents_path = os.path.expanduser("~/Documents")
+                if os.path.exists(documents_path):
+                    output_path = os.path.join(documents_path, "template.docx")
+
+            import ssl
+            import urllib.request
+
+            context = ssl._create_unverified_context()
+
+            with urllib.request.urlopen(self.TEMPLATE_URL, context=context) as response:
+                with open(output_path, 'wb') as out_file:
+                    out_file.write(response.read())
 
             self.template_path_field.value = output_path
             self.template_path_display.value = (
-                f"Текущий шаблон: {output_path}"
+                f"Текущий шаблон: {os.path.basename(output_path)}"
             )
             self.template_path_display.color = ft.Colors.GREEN_700
 
@@ -1128,7 +1150,8 @@ class MireaReportGenerator:
             error_message = (
                 "Не удалось скачать шаблон:\n\n"
                 f"{str(e)}\n\n"
-                "Проверьте подключение к интернету."
+                "Проверьте подключение к интернету или скачайте шаблон вручную:\n"
+                f"{self.TEMPLATE_URL}"
             )
             self.dialog_manager.show_alert("Ошибка", error_message)
             self.dialog_manager.show_snackbar(
@@ -1325,8 +1348,24 @@ class MireaReportGenerator:
             Полный путь для сохранения или None при ошибке
         """
         if self.save_nearby_checkbox.value:
-            logger.debug(f"Сохранение рядом с программой: {filename}")
-            return filename
+            try:
+                if self.is_macos:
+                    default_dir = os.path.expanduser("~/Documents")
+                else:
+                    default_dir = os.path.expanduser("~/Documents")
+
+                if not os.path.exists(default_dir):
+                    default_dir = os.path.expanduser("~")
+
+                output_path = os.path.join(default_dir, filename)
+                logger.debug(f"Сохранение в документы пользователя: {output_path}")
+                return output_path
+            except Exception as e:
+                logger.warning(f"Не удалось определить путь к документам: {e}")
+                default_dir = os.path.expanduser("~")
+                output_path = os.path.join(default_dir, filename)
+                logger.debug(f"Сохранение в домашнюю директорию: {output_path}")
+                return output_path
 
         if not self.selected_save_directory:
             logger.warning("Не выбрана папка для сохранения")
